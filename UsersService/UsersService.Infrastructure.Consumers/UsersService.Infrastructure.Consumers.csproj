@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit.AspNetCore" Version="7.3.1" />
+    <PackageReference Include="MassTransit.EntityFrameworkCore" Version="7.3.1" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="7.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UsersService.Application.DataBase\UsersService.Application.DataBase.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Contracts.Shared">
+      <HintPath>..\..\Contracts.Shared\Contracts.Shared\bin\Debug\net7.0\Contracts.Shared.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
