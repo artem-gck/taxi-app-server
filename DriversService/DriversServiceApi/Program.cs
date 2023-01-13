@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var DbConnectionString = Environment.GetEnvironmentVariable("UsersDbConnection") ?? builder.Configuration.GetConnectionString("UsersDbConnection");
+var rabbitConnectionString = Environment.GetEnvironmentVariable("RabbitConnection") ?? builder.Configuration.GetConnectionString("RabbitConnection");
+var dbConnectionString = Environment.GetEnvironmentVariable("DriversDbConnection") ?? builder.Configuration.GetConnectionString("DriversDbConnection");
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -20,9 +21,9 @@ var DbConnectionString = Environment.GetEnvironmentVariable("UsersDbConnection")
 builder.Services.AddScoped<IDriversRepository, DriversRepository>();
 
 builder.Services.AddDbContext<DriversContext>(opt =>
-    opt.UseSqlServer(DbConnectionString, b => b.MigrationsAssembly("DriversService.Adapters.DataBase")));
+    opt.UseSqlServer(dbConnectionString, b => b.MigrationsAssembly("DriversService.Adapters.DataBase")));
 
-builder.Services.AddHealthChecks().AddSqlServer(DbConnectionString);
+builder.Services.AddHealthChecks().AddSqlServer(dbConnectionString);
 
 builder.Services.AddMassTransit(cfg =>
 {
@@ -41,7 +42,7 @@ builder.Services.AddMassTransit(cfg =>
         });
 
         rbfc.UseDelayedMessageScheduler();
-        rbfc.Host("localhost", "/", h =>
+        rbfc.Host(rabbitConnectionString, "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
@@ -54,7 +55,6 @@ builder.Services.AddMassTransit(cfg =>
 var serviceProvider = builder.Services.BuildServiceProvider();
 var dbContext = serviceProvider.GetRequiredService<DriversContext>();
 dbContext.Database.EnsureCreated();
-
 
 var app = builder.Build();
 

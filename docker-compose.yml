@@ -1,0 +1,90 @@
+version: "3.9"
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.6-management-alpine
+    ports:
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+
+  user_service:
+    container_name: user_api
+    ports:
+      - 8080:80
+    build: 
+      context: .
+      dockerfile: UsersService/UsersServiceApi/Dockerfile
+    environment:
+      UsersDbConnection: "Server=user_sql;Database=user_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      RabbitConnection: "rabbitmq"
+      ASPNETCORE_ENVIRONMENT: "${Environment}"
+    depends_on:
+      - user_sql
+      - rabbitmq
+
+  drivers_service:
+    container_name: drivers_api
+    ports:
+      - 8081:80
+    build: 
+      context: .
+      dockerfile: DriversService/DriversServiceApi/Dockerfile
+    environment:
+      DriversDbConnection: "Server=drivers_sql;Database=drivers_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      RabbitConnection: "rabbitmq"
+      ASPNETCORE_ENVIRONMENT: "${Environment}"
+    depends_on:
+      - drivers_sql
+      - rabbitmq
+
+  orders_service:
+    container_name: orders_api
+    ports:
+      - 8082:80
+    build: 
+      context: .
+      dockerfile: OrdersService/OrdersServiceApi/Dockerfile
+    environment:
+      OrdersDbConnection: "Server=orders_sql;Database=orders_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      RabbitConnection: "rabbitmq"
+      ASPNETCORE_ENVIRONMENT: "${Environment}"
+    depends_on:
+      - orders_sql
+      - rabbitmq
+
+  user_sql:
+    container_name: user_sql
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+        SA_PASSWORD: "yourStrong(!)Password"
+        ACCEPT_EULA: "Y"
+    volumes:
+        - 'users-dbdata:/var/opt/mssql'
+
+  drivers_sql:
+    container_name: drivers_sql
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+        SA_PASSWORD: "yourStrong(!)Password"
+        ACCEPT_EULA: "Y"
+    volumes:
+        - 'drivers-dbdata:/var/opt/mssql'
+
+  orders_sql:
+    container_name: orders_sql
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+        SA_PASSWORD: "yourStrong(!)Password"
+        ACCEPT_EULA: "Y"
+    volumes:
+        - 'orders-dbdata:/var/opt/mssql'
+
+volumes:
+  users-dbdata:
+    driver: local
+  drivers-dbdata:
+    driver: local
+  orders-dbdata:
+    driver: local

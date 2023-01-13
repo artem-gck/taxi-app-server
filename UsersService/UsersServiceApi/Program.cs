@@ -10,7 +10,8 @@ using UsersService.Infrastructure.DataBase.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var DbConnectionString = Environment.GetEnvironmentVariable("UsersDbConnection") ?? builder.Configuration.GetConnectionString("UsersDbConnection");
+var rabbitConnectionString = Environment.GetEnvironmentVariable("RabbitConnection") ?? builder.Configuration.GetConnectionString("RabbitConnection");
+var dbConnectionString = Environment.GetEnvironmentVariable("UsersDbConnection") ?? builder.Configuration.GetConnectionString("UsersDbConnection");
 
 //builder.Services.AddControllers();
 //builder.Services.AddEndpointsApiExplorer();
@@ -19,9 +20,9 @@ var DbConnectionString = Environment.GetEnvironmentVariable("UsersDbConnection")
 builder.Services.AddScoped<IUsersRepository, UsersRepository>();
 
 builder.Services.AddDbContext<UsersContext>(opt =>
-    opt.UseSqlServer(DbConnectionString, b => b.MigrationsAssembly("UsersService.Infrastructure.DataBase")));
+    opt.UseSqlServer(dbConnectionString, b => b.MigrationsAssembly("UsersService.Infrastructure.DataBase")));
 
-builder.Services.AddHealthChecks().AddSqlServer(DbConnectionString);
+builder.Services.AddHealthChecks().AddSqlServer(dbConnectionString);
 
 builder.Services.AddMassTransit(cfg =>
 {
@@ -40,7 +41,7 @@ builder.Services.AddMassTransit(cfg =>
         });
 
         rbfc.UseDelayedMessageScheduler();
-        rbfc.Host("localhost", "/", h =>
+        rbfc.Host(rabbitConnectionString, "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
@@ -49,6 +50,10 @@ builder.Services.AddMassTransit(cfg =>
         rbfc.ConfigureEndpoints(brc);
     });
 }).AddMassTransitHostedService();
+
+var serviceProvider = builder.Services.BuildServiceProvider();
+var dbContext = serviceProvider.GetRequiredService<UsersContext>();
+dbContext.Database.EnsureCreated();
 
 var app = builder.Build();
 
