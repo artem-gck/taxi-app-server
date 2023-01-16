@@ -1,6 +1,7 @@
 ﻿using GreenPipes;
+using HealthChecks.UI.Client;
 using MassTransit;
-using MassTransit.EntityFrameworkCoreIntegration;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using OrchestratorService.Saga;
 using OrchestratorService.Saga.State;
@@ -9,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 var rabbitConnection = Environment.GetEnvironmentVariable("RabbitConnection") ?? builder.Configuration.GetConnectionString("RabbitConnection");
 var dbConnectionString = Environment.GetEnvironmentVariable("SagaConnection") ?? builder.Configuration.GetConnectionString("SagaConnection");
+
+builder.Services.AddHealthChecks();
 
 builder.Services.AddMassTransit(cfg =>
 {
@@ -38,5 +41,10 @@ builder.Services.AddMassTransit(cfg =>
 }).AddMassTransitHostedService();
 
 var app = builder.Build();
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.Run();

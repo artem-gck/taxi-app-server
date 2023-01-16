@@ -78,8 +78,16 @@ services:
     environment:
       RabbitConnection: "rabbitmq"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
+      UserServiceHealth: "http://user_service/health"
+      DriversServiceHealth: "http://drivers_service/health"
+      OrdersServiceHealth: "http://orders_service/health"
+      OrchestratorServiceHealth: "http://orchestrator_service/health"
     depends_on:
       - rabbitmq
+      - user_service
+      - drivers_service
+      - orders_service
+      - orchestrator_service
 
   user_sql:
     container_name: user_sql

@@ -10,7 +10,7 @@ var rabbitConnection = Environment.GetEnvironmentVariable("RabbitConnection") ??
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddHttpClient();
 
 builder.Services.AddMassTransit(cfg =>
 {
