@@ -26,6 +26,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddDelayedMessageScheduler();
 
     cfg.AddConsumer<AddNewOrderConsumer>();
+    cfg.AddConsumer<SetProcessingStatusToOrderConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {

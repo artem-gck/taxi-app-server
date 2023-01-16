@@ -33,6 +33,8 @@ builder.Services.AddMassTransit(cfg =>
 
     cfg.AddConsumer<SetWaitingStatusConsumer>();
     cfg.AddConsumer<CancelSetWaitingStatusConsumer>();
+    cfg.AddConsumer<StartTripConsumer>();
+    cfg.AddConsumer<CancelStartTripConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {

@@ -17,12 +17,23 @@ builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
     cfg.AddDelayedMessageScheduler();
+
     cfg.AddSagaStateMachine<OrderCarSaga, OrderCarSagaState>()
        .MongoDbRepository(r =>
        {
            r.Connection = dbConnectionString;
            r.DatabaseName = "orderDb";
+           r.CollectionName = "orders";
        });
+
+    cfg.AddSagaStateMachine<ProcessCarSaga, ProcessCarSagaState>()
+       .MongoDbRepository(r =>
+       {
+           r.Connection = dbConnectionString;
+           r.DatabaseName = "orderDb";
+           r.CollectionName = "processes";
+       });
+    
     cfg.UsingRabbitMq((brc, rbfc) =>
     {
         rbfc.UseInMemoryOutbox();

@@ -34,6 +34,8 @@ builder.Services.AddMassTransit(cfg =>
 
     cfg.AddConsumer<SetGoesToUserStatusConsumer>();
     cfg.AddConsumer<CancelSetGoesToUserStatusConsumer>();
+    cfg.AddConsumer<SetOnTheTripStatusConsumer>();
+    cfg.AddConsumer<CancelSetOnTheTripStatusConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {

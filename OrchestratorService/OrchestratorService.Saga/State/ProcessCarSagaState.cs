@@ -3,7 +3,7 @@ using MassTransit.Saga;
 
 namespace OrchestratorService.Saga.State
 {
-    public sealed class OrderCarSagaState : SagaStateMachineInstance, ISagaVersion
+    public sealed class ProcessCarSagaState : SagaStateMachineInstance, ISagaVersion
     {
         public Guid CorrelationId { get; set; }
         public string? CurrentState { get; set; }

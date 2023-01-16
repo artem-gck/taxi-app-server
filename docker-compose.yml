@@ -97,8 +97,8 @@ services:
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
-    volumes:
-        - 'users-dbdata:/var/opt/mssql'
+    # volumes:
+    #     - 'users-dbdata:/var/opt/mssql'
 
   drivers_sql:
     container_name: drivers_sql
@@ -108,8 +108,8 @@ services:
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
-    volumes:
-        - 'drivers-dbdata:/var/opt/mssql'
+    # volumes:
+    #     - 'drivers-dbdata:/var/opt/mssql'
 
   orders_sql:
     container_name: orders_sql
@@ -119,21 +119,21 @@ services:
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
-    volumes:
-        - 'orders-dbdata:/var/opt/mssql'
+    # volumes:
+    #     - 'orders-dbdata:/var/opt/mssql'
 
   saga_mongo:
     container_name: saga_mongo
     image: "mongo"
-    volumes:
-      - 'orchestrator-dbdata:/data/db'
+    # volumes:
+    #   - 'orchestrator-dbdata:/data/db'
 
-volumes:
-  users-dbdata:
-    driver: local
-  drivers-dbdata:
-    driver: local
-  orders-dbdata:
-    driver: local
-  orchestrator-dbdata:
-    driver: local
+# volumes:
+#   users-dbdata:
+#     driver: local
+#   drivers-dbdata:
+#     driver: local
+#   orders-dbdata:
+#     driver: local
+#   orchestrator-dbdata:
+#     driver: local

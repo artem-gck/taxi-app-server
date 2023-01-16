@@ -46,18 +46,21 @@ namespace OrchestratorService.Saga
                     .TransitionTo(SetGoesToUserDriver.Pending),
 
                 When(SetWaitingUser.Faulted)
-                   .ThenAsync(async context =>
-                   {
-                       await RespondFromSaga(context, "Faulted On Get Money " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message)));
-                   })
-                   .Finalize(),
+                   .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set User Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+                   .TransitionTo(FailedSetUser),
 
                 When(SetWaitingUser.TimeoutExpired)
-                   .ThenAsync(async context =>
-                   {
-                       await RespondFromSaga(context, "Timeout Expired On Get Money");
-                   })
-                   .Finalize()
+                   .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set User Status"); })
+                   .TransitionTo(FailedSetUser)
+            );
+
+            During(FailedSetUser,
+
+                When(SetWaitingUser.Faulted)
+                    .Finalize(),
+
+                 When(SetWaitingUser.TimeoutExpired)
+                    .Finalize()
             );
 
             During(SetGoesToUserDriver.Pending,
@@ -79,47 +82,52 @@ namespace OrchestratorService.Saga
                     .TransitionTo(AddOrder.Pending),
 
                 When(SetGoesToUserDriver.Faulted)
+                    .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Driver Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+                    .TransitionTo(FailedSetDriver),
+
+                When(SetGoesToUserDriver.TimeoutExpired)     
+                    .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set Driver Status"); })
+                    .TransitionTo(FailedSetDriver)
+            );
+
+            During(FailedSetDriver,
+
+                When(SetGoesToUserDriver.Faulted)
                     .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
-                    .ThenAsync(async context =>
-                    {
-                        await RespondFromSaga(context, "Faulted On Get Money " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message)));
-                    })
                     .Finalize(),
 
                 When(SetGoesToUserDriver.TimeoutExpired)
                     .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
-                    .ThenAsync(async context =>
-                    {
-                        await RespondFromSaga(context, "Timeout Expired On Get Money");
-                    })
                     .Finalize()
             );
 
             During(AddOrder.Pending,
 
                 When(AddOrder.Completed)
-                    .ThenAsync(async context =>
-                    {
-                        await RespondFromSaga(context, null);
-                    })
+                    .ThenAsync(async context => {  await RespondFromSaga(context, null); })
                     .Finalize(),
+
+                When(AddOrder.Faulted)
+                    .ThenAsync(async context => {  await RespondFromSaga(context, "Faulted On Add Order " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+                    .TransitionTo(FailedAddOrder),
+
+                When(AddOrder.TimeoutExpired)
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
+                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
+                    .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Add Order"); })
+                    .TransitionTo(FailedAddOrder)
+            );
+
+            During(FailedAddOrder,
 
                 When(AddOrder.Faulted)
                     .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
                     .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
-                    .ThenAsync(async context =>
-                    {
-                        await RespondFromSaga(context, "Faulted On Get Items " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message)));
-                    })
                     .Finalize(),
 
                 When(AddOrder.TimeoutExpired)
                     .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
                     .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
-                    .ThenAsync(async context =>
-                    {
-                        await RespondFromSaga(context, "Timeout Expired On Get Items");
-                    })
                     .Finalize()
             );
         }
@@ -130,17 +138,35 @@ namespace OrchestratorService.Saga
         public Request<OrderCarSagaState, CancelSetGoesToUserDriverStatusRequest, CancelSetGoesToUserDriverStatusResponse> CancelSetGoesToUserDriver { get; set; }
         public Request<OrderCarSagaState, AddOrderRequest, AddOrderResponse> AddOrder { get; set; }
 
+        public Automatonymous.State FailedSetUser { get; set; }
+        public Automatonymous.State FailedSetDriver { get; set; }
+        public Automatonymous.State FailedAddOrder { get; set; }
+
         public Event<OrderCarRequest> OrderCar { get; set; }
 
         private static async Task RespondFromSaga<T>(BehaviorContext<OrderCarSagaState, T> context, string error) where T : class
         {
             var endpoint = await context.GetSendEndpoint(context.Instance.ResponseAddress);
-            await endpoint.Send(new OrderCarResponse
+            
+            if (string.IsNullOrWhiteSpace(error))
             {
-                OrderId = context.Instance.CorrelationId,
-                ErrorMessage = error
-            }, 
-            r => r.RequestId = context.Instance.RequestId);
+                await endpoint.Send(new OrderCarResponse
+                {
+                    CorrelationId = context.Instance.CorrelationId,
+                    OrderId = (context as BehaviorContext<OrderCarSagaState, AddOrderResponse>).Data.OrderId,
+                    ErrorMessage = error
+                },
+                r => r.RequestId = context.Instance.RequestId);
+            }
+            else
+            {
+                await endpoint.Send(new OrderCarResponse
+                {
+                    CorrelationId = context.Instance.CorrelationId,
+                    ErrorMessage = error
+                },
+                r => r.RequestId = context.Instance.RequestId);
+            }
         }
     }
 }
