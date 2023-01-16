@@ -2,9 +2,10 @@ version: "3.9"
 services:
   rabbitmq:
     container_name: rabbitmq
-    image: rabbitmq:3.6-management-alpine
+    image: heidiks/rabbitmq-delayed-message-exchange:latest
     ports:
       - 15672:15672
+      - 5672:5672
     environment:
       RABBITMQ_DEFAULT_USER: "guest"
       RABBITMQ_DEFAULT_PASS: "guest"
@@ -54,9 +55,37 @@ services:
       - orders_sql
       - rabbitmq
 
+  orchestrator_service:
+    container_name: orchestrator_api
+    build: 
+      context: .
+      dockerfile: OrchestratorService/OrchestratorServiceApi/Dockerfile
+    environment:
+      SagaConnection: "mongodb://saga_mongo"
+      RabbitConnection: "rabbitmq"
+      ASPNETCORE_ENVIRONMENT: "${Environment}"
+    depends_on:
+      - saga_mongo
+      - rabbitmq
+
+  api_gateway:
+    container_name: api_gateway
+    ports:
+      - 8083:80
+    build: 
+      context: .
+      dockerfile: ApiGateway/ApiGateway/Dockerfile
+    environment:
+      RabbitConnection: "rabbitmq"
+      ASPNETCORE_ENVIRONMENT: "${Environment}"
+    depends_on:
+      - rabbitmq
+
   user_sql:
     container_name: user_sql
     image: "mcr.microsoft.com/mssql/server"
+    ports: 
+      - 1433:1433
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
@@ -66,6 +95,8 @@ services:
   drivers_sql:
     container_name: drivers_sql
     image: "mcr.microsoft.com/mssql/server"
+    ports: 
+      - 1434:1433
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
@@ -75,11 +106,19 @@ services:
   orders_sql:
     container_name: orders_sql
     image: "mcr.microsoft.com/mssql/server"
+    ports: 
+      - 1435:1433
     environment:
         SA_PASSWORD: "yourStrong(!)Password"
         ACCEPT_EULA: "Y"
     volumes:
         - 'orders-dbdata:/var/opt/mssql'
+
+  saga_mongo:
+    container_name: saga_mongo
+    image: "mongo"
+    volumes:
+      - 'orchestrator-dbdata:/data/db'
 
 volumes:
   users-dbdata:
@@ -87,4 +126,6 @@ volumes:
   drivers-dbdata:
     driver: local
   orders-dbdata:
+    driver: local
+  orchestrator-dbdata:
     driver: local

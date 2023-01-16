@@ -1,11 +1,11 @@
-﻿using Contracts.Shared;
+﻿using Contracts.Shared.OrderCarTransaction;
 using MassTransit;
 using OrdersService.Access.DataBase.Entities;
 using OrdersService.Access.DataBase.Interfaces;
 
 namespace OrdersService.Services.Consumers
 {
-    public class AddNewOrderConsumer : IConsumer<IAddOrderRequest>
+    public class AddNewOrderConsumer : IConsumer<AddOrderRequest>
     {
         private readonly IOrdersRepository _ordersRepository;
 
@@ -14,7 +14,7 @@ namespace OrdersService.Services.Consumers
             _ordersRepository = ordersRepository ?? throw new ArgumentNullException(nameof(ordersRepository));
         }
 
-        public async Task Consume(ConsumeContext<IAddOrderRequest> context)
+        public async Task Consume(ConsumeContext<AddOrderRequest> context)
         {
             var order = new OrderEntity()
             {
@@ -47,7 +47,7 @@ namespace OrdersService.Services.Consumers
             };
 
             var orderId = await _ordersRepository.AddAsync(order);
-            await context.RespondAsync<IAddOrderResponse>(new { orderId });
+            await context.RespondAsync(new AddOrderResponse { OrderId = orderId });
         }
     }
 }

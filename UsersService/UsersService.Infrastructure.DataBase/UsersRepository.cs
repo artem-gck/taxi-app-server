@@ -38,7 +38,10 @@ namespace UsersService.Infrastructure.DataBase
 
         public async Task<User> GetAsync(Guid id)
         {
-            var userEntity = await _usersContext.Users.FindAsync(id);
+            var userEntity = await _usersContext.Users
+                                                .Include(us => us.Coordinates)
+                                                .Include(us => us.Status)
+                                                .FirstOrDefaultAsync(us => us.Id == id);
 
             if (userEntity is null)
                 throw new NotFoundException();
@@ -48,7 +51,10 @@ namespace UsersService.Infrastructure.DataBase
 
         public async Task UpdateAsync(Guid id, User user)
         {
-            var userEntity = await _usersContext.Users.FindAsync(id);
+            var userEntity = await _usersContext.Users
+                                                .Include(us => us.Coordinates)
+                                                .Include(us => us.Status)
+                                                .FirstOrDefaultAsync(us => us.Id == id);
 
             if (userEntity is null)
                 throw new NotFoundException();
@@ -60,7 +66,10 @@ namespace UsersService.Infrastructure.DataBase
 
         public async Task UpdateStatusAsync(Guid id, string status)
         {
-            var userEntity = await _usersContext.Users.FindAsync(id);
+            var userEntity = await _usersContext.Users
+                                                .Include(us => us.Coordinates)
+                                                .Include(us => us.Status)
+                                                .FirstOrDefaultAsync(us => us.Id == id);
 
             if (userEntity is null)
                 throw new NotFoundException();

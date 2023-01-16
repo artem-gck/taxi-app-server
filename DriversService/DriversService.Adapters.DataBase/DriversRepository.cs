@@ -26,7 +26,10 @@ namespace DriversService.Adapters.DataBase
 
         public async Task DeleteAsync(Guid id)
         {
-            var driverEntity = await _driversContext.Drivers.FindAsync(id);
+            var driverEntity = await _driversContext.Drivers
+                                                    .Include(dr => dr.Coordinates)
+                                                    .Include(dr => dr.Status)
+                                                    .FirstOrDefaultAsync(us => us.Id == id);
 
             if (driverEntity is null)
                 throw new NotFoundDriverException();
@@ -38,7 +41,10 @@ namespace DriversService.Adapters.DataBase
 
         public async Task<Driver> GetAsync(Guid id)
         {
-            var driverEntity = await _driversContext.Drivers.FindAsync(id);
+            var driverEntity = await _driversContext.Drivers
+                                                    .Include(dr => dr.Coordinates)
+                                                    .Include(dr => dr.Status)
+                                                    .FirstOrDefaultAsync(us => us.Id == id);
 
             if (driverEntity is null)
                 throw new NotFoundDriverException();
@@ -48,7 +54,10 @@ namespace DriversService.Adapters.DataBase
 
         public async Task UpdateAsync(Guid id, Driver user)
         {
-            var driverEntity = await _driversContext.Drivers.FindAsync(id);
+            var driverEntity = await _driversContext.Drivers
+                                                    .Include(dr => dr.Coordinates)
+                                                    .Include(dr => dr.Status)
+                                                    .FirstOrDefaultAsync(us => us.Id == id);
 
             if (driverEntity is null)
                 throw new NotFoundDriverException();
@@ -60,7 +69,10 @@ namespace DriversService.Adapters.DataBase
 
         public async Task UpdateStatusAsync(Guid id, string status)
         {
-            var driverEntity = await _driversContext.Drivers.FindAsync(id);
+            var driverEntity = await _driversContext.Drivers
+                                                    .Include(dr => dr.Coordinates)
+                                                    .Include(dr => dr.Status)
+                                                    .FirstOrDefaultAsync(us => us.Id == id);
 
             if (driverEntity is null)
                 throw new NotFoundDriverException();

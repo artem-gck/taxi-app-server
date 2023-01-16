@@ -1,6 +1,6 @@
-﻿namespace Contracts.Shared
+﻿namespace Contracts.Shared.OrderCarTransaction
 {
-    public interface IAddOrderRequest
+    public class AddOrderRequest
     {
         public Guid UserId { get; set; }
         public string UserName { get; set; }

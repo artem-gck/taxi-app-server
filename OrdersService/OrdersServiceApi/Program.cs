@@ -49,6 +49,7 @@ builder.Services.AddMassTransit(cfg =>
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 var dbContext = serviceProvider.GetRequiredService<OrdersContext>();
+dbContext.Database.EnsureDeleted();
 dbContext.Database.EnsureCreated();
 
 var app = builder.Build();

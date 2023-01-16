@@ -26,7 +26,12 @@ namespace OrdersService.Access.DataBase.Realisations
 
         public async Task DeleteAsync(Guid id)
         {
-            var orderEntity = await _ordersContext.Orders.FindAsync(id);
+            var orderEntity = await _ordersContext.Orders
+                                                  .Include(or => or.User)
+                                                  .Include(or => or.Driver)
+                                                  .Include(or => or.StartCoordinates)
+                                                  .Include(or => or.FinishCoordinates)
+                                                  .FirstOrDefaultAsync(or => or.Id == id);
 
             if (orderEntity is null)
                 throw new NotFoundOrderException();
@@ -38,7 +43,12 @@ namespace OrdersService.Access.DataBase.Realisations
 
         public async Task<OrderEntity> GetAsync(Guid id)
         {
-            var orderEntity = await _ordersContext.Orders.FindAsync(id);
+            var orderEntity = await _ordersContext.Orders
+                                                  .Include(or => or.User)
+                                                  .Include(or => or.Driver)
+                                                  .Include(or => or.StartCoordinates)
+                                                  .Include(or => or.FinishCoordinates)
+                                                  .FirstOrDefaultAsync(or => or.Id == id);
 
             if (orderEntity is null)
                 throw new NotFoundOrderException();
@@ -48,7 +58,12 @@ namespace OrdersService.Access.DataBase.Realisations
 
         public async Task UpdateAsync(Guid id, OrderEntity order)
         {
-            var driverEntity = await _ordersContext.Orders.FindAsync(id);
+            var driverEntity = await _ordersContext.Orders
+                                                   .Include(or => or.User)
+                                                   .Include(or => or.Driver)
+                                                   .Include(or => or.StartCoordinates)
+                                                   .Include(or => or.FinishCoordinates)
+                                                   .FirstOrDefaultAsync(or => or.Id == id);
 
             if (driverEntity is null)
                 throw new NotFoundOrderException();
@@ -60,7 +75,12 @@ namespace OrdersService.Access.DataBase.Realisations
 
         public async Task UpdateStatusAsync(Guid id, string status)
         {
-            var orderEntity = await _ordersContext.Orders.FindAsync(id);
+            var orderEntity = await _ordersContext.Orders
+                                                  .Include(or => or.User)
+                                                  .Include(or => or.Driver)
+                                                  .Include(or => or.StartCoordinates)
+                                                  .Include(or => or.FinishCoordinates)
+                                                  .FirstOrDefaultAsync(or => or.Id == id);
 
             if (orderEntity is null)
                 throw new NotFoundOrderException();

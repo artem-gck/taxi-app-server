@@ -1,10 +1,10 @@
-﻿using Contracts.Shared;
+﻿using Contracts.Shared.OrderCarTransaction;
 using MassTransit;
 using UsersService.Application.DataBase;
 
 namespace UsersService.Application.Consumers
 {
-    public class SetWaitingStatusConsumer : IConsumer<ISetWaitingUserStatusRequest>
+    public class SetWaitingStatusConsumer : IConsumer<SetWaitingUserStatusRequest>
     {
         private readonly IUsersRepository _userRepository;
 
@@ -13,7 +13,7 @@ namespace UsersService.Application.Consumers
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         }
 
-        public async Task Consume(ConsumeContext<ISetWaitingUserStatusRequest> context)
+        public async Task Consume(ConsumeContext<SetWaitingUserStatusRequest> context)
         {
             var userId = context.Message.UserId;
 
@@ -22,8 +22,12 @@ namespace UsersService.Application.Consumers
             if (user.Status?.Name == "Free")
             {
                 await _userRepository.UpdateStatusAsync(userId, "Waiting car");
-                await context.RespondAsync<ISetWaitingUserStatusResponse>(new { context.Message.UserId });
+                await context.RespondAsync(new SetWaitingUserStatusResponse { UserId = userId });
+
+                return;
             }
+
+            throw new Exception();
         }
     }
 }

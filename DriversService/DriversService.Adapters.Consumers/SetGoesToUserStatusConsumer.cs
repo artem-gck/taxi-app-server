@@ -1,10 +1,10 @@
-﻿using Contracts.Shared;
+﻿using Contracts.Shared.OrderCarTransaction;
 using DriversService.Ports.DataBase;
 using MassTransit;
 
 namespace DriversService.Adapters.Consumers
 {
-    public class SetGoesToUserStatusConsumer : IConsumer<ISetGoesToUserDriverStatusRequest>
+    public class SetGoesToUserStatusConsumer : IConsumer<SetGoesToUserDriverStatusRequest>
     {
         private readonly IDriversRepository _driversRepository;
 
@@ -13,7 +13,7 @@ namespace DriversService.Adapters.Consumers
             _driversRepository = driversRepository ?? throw new ArgumentNullException(nameof(driversRepository));
         }
 
-        public async Task Consume(ConsumeContext<ISetGoesToUserDriverStatusRequest> context)
+        public async Task Consume(ConsumeContext<SetGoesToUserDriverStatusRequest> context)
         {
             var driverId = context.Message.DriverId;
 
@@ -22,8 +22,12 @@ namespace DriversService.Adapters.Consumers
             if (user.Status?.Name == "Free" && user.IsOnline.Value)
             {
                 await _driversRepository.UpdateStatusAsync(driverId, "Goes to the user");
-                await context.RespondAsync<ISetGoesToUserDriverStatusResponse>(new { driverId });
+                await context.RespondAsync(new SetGoesToUserDriverStatusResponse { DriverId = driverId });
+
+                return;
             }
+
+            throw new Exception();
         }
     }
 }

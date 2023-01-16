@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using UsersService.Application.Consumers;
 using UsersService.Application.DataBase;
+using UsersService.Domain.Models;
+using UsersService.Infrastructure.Consumers;
 using UsersService.Infrastructure.DataBase;
 using UsersService.Infrastructure.DataBase.Context;
 
@@ -30,6 +32,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddDelayedMessageScheduler();
 
     cfg.AddConsumer<SetWaitingStatusConsumer>();
+    cfg.AddConsumer<CancelSetWaitingStatusConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {
@@ -53,7 +56,28 @@ builder.Services.AddMassTransit(cfg =>
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 var dbContext = serviceProvider.GetRequiredService<UsersContext>();
+dbContext.Database.EnsureDeleted();
 dbContext.Database.EnsureCreated();
+
+var user = new User()
+{
+    Id = Guid.Parse("f1b6756c-c8e1-417e-8b87-f36b6b528a92"),
+    Name = "Artem",
+    Surname = "Hatsko",
+    Email = "g.artema31@gmail.com",
+    PhoneNumber = "+375447940007",
+    Coordinates = new Coordinates()
+    {
+        Latitude = 11,
+        Longitude = 11
+    },
+    Status = new Status()
+    {
+        Name = "Free"
+    }
+};
+dbContext.Users.Add(user);
+dbContext.SaveChanges();
 
 var app = builder.Build();
 
