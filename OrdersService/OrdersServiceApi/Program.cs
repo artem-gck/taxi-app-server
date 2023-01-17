@@ -27,6 +27,9 @@ builder.Services.AddMassTransit(cfg =>
 
     cfg.AddConsumer<AddNewOrderConsumer>();
     cfg.AddConsumer<SetProcessingStatusToOrderConsumer>();
+    cfg.AddConsumer<CancelSetProcessingStatusToOrderConsumer>();
+    cfg.AddConsumer<SetFinishStatusToOrderConsumer>();
+    cfg.AddConsumer<CancelSetFinishStatusToOrderConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {

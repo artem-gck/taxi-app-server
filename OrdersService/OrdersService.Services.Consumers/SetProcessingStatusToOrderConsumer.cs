@@ -23,7 +23,12 @@ namespace OrdersService.Services.Consumers
             {
                 await _ordersRepository.UpdateStatusAsync(orderId, "Processing");
 
-                await context.RespondAsync(new SetProcessingStatusToOrderResponse { OrderId = orderId });
+                await context.RespondAsync(new SetProcessingStatusToOrderResponse 
+                { 
+                    OrderId = orderId,
+                    UserId = orderEntity.User.Id,
+                    DriverId = orderEntity.Driver.Id
+                });
 
                 return;
             }

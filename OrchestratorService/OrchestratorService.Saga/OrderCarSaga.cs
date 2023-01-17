@@ -11,6 +11,7 @@ namespace OrchestratorService.Saga
         public OrderCarSaga(ILogger<OrderCarSaga> logger)
         {
             OrderCarRequest request = new OrderCarRequest();
+            SetWaitingUserStatusResponse userResponce = new SetWaitingUserStatusResponse();
 
             InstanceState(x => x.CurrentState);
 
@@ -42,6 +43,7 @@ namespace OrchestratorService.Saga
             During(SetWaitingUser.Pending,
 
                 When(SetWaitingUser.Completed)
+                    .Then(x => userResponce = x.Data)
                     .Request(SetGoesToUserDriver, x => x.Init<SetGoesToUserDriverStatusRequest>(new SetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
                     .TransitionTo(SetGoesToUserDriver.Pending),
 
@@ -69,11 +71,11 @@ namespace OrchestratorService.Saga
                     .Request(AddOrder, x => x.Init<AddOrderRequest>(new AddOrderRequest
                     {
                         UserId = request.UserId,
-                        UserName = request.UserName,
-                        UserSurname = request.UserSurname,
+                        UserName = userResponce.Name,
+                        UserSurname = userResponce.Surname,
                         DriverId = request.DriverId,
-                        DriverName = request.DriverName,
-                        DriverSurname = request.DriverSurname,
+                        DriverName = x.Data.Name,
+                        DriverSurname = x.Data.Surname,
                         StartLatitude = request.StartLatitude,
                         StartLongitude = request.StartLongitude,
                         FinishLatitude = request.FinishLatitude,

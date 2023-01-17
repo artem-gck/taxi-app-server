@@ -33,7 +33,15 @@ builder.Services.AddMassTransit(cfg =>
            r.DatabaseName = "orderDb";
            r.CollectionName = "processes";
        });
-    
+
+    cfg.AddSagaStateMachine<FinishCarSaga, FinishCarSagaState>()
+       .MongoDbRepository(r =>
+       {
+           r.Connection = dbConnectionString;
+           r.DatabaseName = "orderDb";
+           r.CollectionName = "finish";
+       });
+
     cfg.UsingRabbitMq((brc, rbfc) =>
     {
         rbfc.UseInMemoryOutbox();

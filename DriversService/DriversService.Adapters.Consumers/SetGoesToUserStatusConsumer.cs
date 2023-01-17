@@ -22,7 +22,12 @@ namespace DriversService.Adapters.Consumers
             if (user.Status?.Name == "Free" && user.IsOnline.Value)
             {
                 await _driversRepository.UpdateStatusAsync(driverId, "Goes to the user");
-                await context.RespondAsync(new SetGoesToUserDriverStatusResponse { DriverId = driverId });
+                await context.RespondAsync(new SetGoesToUserDriverStatusResponse 
+                { 
+                    DriverId = driverId,
+                    Name = user.Name,
+                    Surname = user.Surname
+                });
 
                 return;
             }

@@ -1,4 +1,5 @@
 ﻿using ApiGateway.Models;
+using Contracts.Shared.FinishTheTransaction;
 using Contracts.Shared.OrderCarTransaction;
 using Contracts.Shared.StartTripTransaction;
 using HealthChecks.UI.Core;
@@ -78,8 +79,58 @@ namespace ApiGateway.Controllers
                 return BadRequest(response.Message);
         }
 
-        [HttpPut]
-        public async Task<IActionResult> ProcessAsync(ProcessCarRequestModel model)
+        [HttpPut("process/{id}")]
+        public async Task<IActionResult> ProcessAsync(Guid id)
+        {
+            try
+            {
+                var usersServiceResponse = await _httpClient.GetAsync(_usersServiceHealthUri);
+                var usersServiceResponseString = await usersServiceResponse.Content.ReadAsStringAsync();
+                var usersServiceHealthReport = JsonConvert.DeserializeObject<UIHealthReport>(usersServiceResponseString);
+                var usersServiceStatus = usersServiceHealthReport.Status;
+
+                var driversServiceResponse = await _httpClient.GetAsync(_driversServiceHealthUri);
+                var driversServiceResponseString = await driversServiceResponse.Content.ReadAsStringAsync();
+                var driversServiceHealthReport = JsonConvert.DeserializeObject<UIHealthReport>(driversServiceResponseString);
+                var driversServiceStatus = driversServiceHealthReport.Status;
+
+                var ordersServiceResponse = await _httpClient.GetAsync(_ordersServiceHealthUri);
+                var ordersServiceResponseString = await ordersServiceResponse.Content.ReadAsStringAsync();
+                var ordersServiceHealthReport = JsonConvert.DeserializeObject<UIHealthReport>(ordersServiceResponseString);
+                var ordersServiceStatus = ordersServiceHealthReport.Status;
+
+                var orchestratorServiceResponse = await _httpClient.GetAsync(_orchestratorServiceHealthUri);
+                var orchestratorServiceResponseString = await orchestratorServiceResponse.Content.ReadAsStringAsync();
+                var orchestratorServiceHealthReport = JsonConvert.DeserializeObject<UIHealthReport>(orchestratorServiceResponseString);
+                var orchestratorServiceStatus = orchestratorServiceHealthReport.Status;
+
+                if (usersServiceStatus != UIHealthStatus.Healthy ||
+                    driversServiceStatus != UIHealthStatus.Healthy ||
+                    ordersServiceStatus != UIHealthStatus.Healthy ||
+                    orchestratorServiceStatus != UIHealthStatus.Healthy)
+                    throw new Exception();
+
+            }
+            catch (Exception)
+            {
+                return BadRequest("Services unhealthy");
+            }
+
+            var model = new ProcessCarRequestModel();
+
+            model.Id = Guid.NewGuid();
+            model.OrderId = id;
+
+            var response = await _bus.Request<ProcessCarRequest, ProcessCarResponse>(model);
+
+            if (string.IsNullOrWhiteSpace(response.Message.ErrorMessage))
+                return Ok(response.Message);
+            else
+                return BadRequest(response.Message);
+        }
+
+        [HttpPut("delete/{id}")]
+        public async Task<IActionResult> FinishAsync(FinishCarRequestModel model, Guid id)
         {
             try
             {
@@ -116,8 +167,9 @@ namespace ApiGateway.Controllers
             }
 
             model.Id = Guid.NewGuid();
+            model.OrderId = id;
 
-            var response = await _bus.Request<ProcessCarRequest, ProcessCarResponse>(model);
+            var response = await _bus.Request<FinishCarRequest, FinishCarResponse>(model);
 
             if (string.IsNullOrWhiteSpace(response.Message.ErrorMessage))
                 return Ok(response.Message);

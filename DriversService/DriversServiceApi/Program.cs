@@ -8,7 +8,6 @@ using HealthChecks.UI.Client;
 using MassTransit;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +34,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<SetGoesToUserStatusConsumer>();
     cfg.AddConsumer<CancelSetGoesToUserStatusConsumer>();
     cfg.AddConsumer<SetOnTheTripStatusConsumer>();
-    cfg.AddConsumer<CancelSetOnTheTripStatusConsumer>();
+    cfg.AddConsumer<SetFreeStatusConsumer>();
 
     cfg.UsingRabbitMq((brc, rbfc) =>
     {

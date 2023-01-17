@@ -1,6 +1,6 @@
-﻿namespace Contracts.Shared.StartTripTransaction
+﻿namespace Contracts.Shared.FinishTheTransaction
 {
-    public class SetProcessingStatusToOrderResponse
+    public class SetFinishStatusToOrderResponse
     {
         public Guid OrderId { get; set; }
         public Guid UserId { get; set; }

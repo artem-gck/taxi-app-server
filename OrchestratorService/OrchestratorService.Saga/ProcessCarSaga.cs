@@ -14,16 +14,17 @@ namespace OrchestratorService.Saga
         {
             _logger = logger;
             ProcessCarRequest request = new ProcessCarRequest();
+            SetProcessingStatusToOrderResponse order = new SetProcessingStatusToOrderResponse();
 
             InstanceState(x => x.CurrentState);
 
             Event(() => ProcessCar, x => x.CorrelateById(y => y.Message.Id));
 
+            Request(() => SetProcessingStatusToOrder);
+            Request(() => CancelSetProcessingStatusToOrder);
             Request(() => SetOnTheTripUser);
             Request(() => CancelSetOnTheTripUser);
             Request(() => SetOnTheTripDriver);
-            Request(() => CancelSetOnTheTripDriver);
-            Request(() => SetProcessingStatusToOrder);
 
             Initially(
                 When(ProcessCar).Then(x =>
@@ -33,54 +34,73 @@ namespace OrchestratorService.Saga
                     if (!x.TryGetPayload(out SagaConsumeContext<ProcessCarSagaState, ProcessCarRequest> payload))
                         throw new Exception("Unable to retrieve required payload for callback data.");
 
-                    //logger.LogCritical(x.Data.ResponseAddress.ToString());
-
-                    logger.LogCritical(payload.RequestId.ToString());
-                    logger.LogCritical(payload.ResponseAddress.ToString());
-
                     x.Instance.RequestId = payload.RequestId;
                     x.Instance.ResponseAddress = payload.ResponseAddress;
                 })
-                .Request(SetOnTheTripUser, x =>
+                .Request(SetProcessingStatusToOrder, x =>
                 {
                     request = x.Data;
-                    logger.LogCritical(request.OrderId.ToString());
-                    return x.Init<SetOnTheTripUserStatusRequest>(new SetOnTheTripUserStatusRequest() { UserId = x.Data.UserId });
+                    return x.Init<SetProcessingStatusToOrderRequest>(new SetProcessingStatusToOrderRequest() { OrderId = x.Data.OrderId });
                 })
-                .TransitionTo(SetOnTheTripUser.Pending)
+                .TransitionTo(SetProcessingStatusToOrder.Pending)
+            );
+
+            During(SetProcessingStatusToOrder.Pending,
+
+                When(SetProcessingStatusToOrder.Completed)
+                    .Then(x => order = x.Data)
+                    .Request(SetOnTheTripUser, x => x.Init<SetOnTheTripUserStatusRequest>(new SetOnTheTripUserStatusRequest { UserId = x.Data.UserId }))
+                    .TransitionTo(SetOnTheTripUser.Pending),
+
+                When(SetProcessingStatusToOrder.Faulted)
+                   .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Order Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+                   .TransitionTo(FailedSetOrder),
+
+                When(SetProcessingStatusToOrder.TimeoutExpired)
+                   .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set Order Status"); })
+                   .TransitionTo(FailedSetOrder)
+            );
+
+            During(FailedSetOrder,
+
+                When(SetProcessingStatusToOrder.Faulted)
+                    .Finalize(),
+
+                 When(SetProcessingStatusToOrder.TimeoutExpired)
+                    .Finalize()
             );
 
             During(SetOnTheTripUser.Pending,
 
                 When(SetOnTheTripUser.Completed)
-                    .Then(context => { logger.LogCritical("SetOnTheTripUser.Completed"); })
-                    .Request(SetOnTheTripDriver, x => x.Init<SetOnTheTripStatusRequest>(new SetOnTheTripStatusRequest { DriverId = request.DriverId }))
+                    .Request(SetOnTheTripDriver, x => x.Init<SetOnTheTripStatusRequest>(new SetOnTheTripStatusRequest { DriverId = order.DriverId }))
                     .TransitionTo(SetOnTheTripDriver.Pending),
 
                 When(SetOnTheTripUser.Faulted)
-                   .ThenAsync(async context => {  await RespondFromSaga(context, "Faulted On Set User Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
-                   .TransitionTo(FailedSetUser),
+                    .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set User Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+                    .TransitionTo(FailedSetUser),
 
                 When(SetOnTheTripUser.TimeoutExpired)
-                   .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set User Status"); })
-                   .TransitionTo(FailedSetUser)
+                    .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set User Status"); })
+                    .TransitionTo(FailedSetUser)
             );
 
             During(FailedSetUser,
 
                 When(SetOnTheTripUser.Faulted)
+                    .Request(CancelSetProcessingStatusToOrder, x => x.Init<CancelSetProcessingStatusToOrderRequest>(new CancelSetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
                     .Finalize(),
 
-                 When(SetOnTheTripUser.TimeoutExpired)
+                When(SetOnTheTripUser.TimeoutExpired)
+                    .Request(CancelSetProcessingStatusToOrder, x => x.Init<CancelSetProcessingStatusToOrderRequest>(new CancelSetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
                     .Finalize()
             );
 
             During(SetOnTheTripDriver.Pending,
 
                 When(SetOnTheTripDriver.Completed)
-                    .Then(context => { logger.LogCritical("SetOnTheTripDriver.Completed"); })
-                    .Request(SetProcessingStatusToOrder, x => x.Init<SetProcessingStatusToOrderRequest>(new SetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
-                    .TransitionTo(SetProcessingStatusToOrder.Pending),
+                    .ThenAsync(async context => { await RespondFromSaga(context, null); })
+                    .Finalize(),
 
                 When(SetOnTheTripDriver.Faulted)
                     .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Driver Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
@@ -93,50 +113,129 @@ namespace OrchestratorService.Saga
 
             During(FailedSetDriver,
 
-                When(SetOnTheTripDriver.Faulted)
-                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
-                    .Finalize(),
-
-                When(SetOnTheTripDriver.TimeoutExpired)
-                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
-                    .Finalize()
-            );
-
-            During(SetProcessingStatusToOrder.Pending,
-
-                When(SetProcessingStatusToOrder.Completed)
-                    .Then(context => { logger.LogCritical("SetProcessingStatusToOrder.Completed"); })
-                    .ThenAsync(async context => { await RespondFromSaga(context, null); })
-                    .Finalize(),
-
                 When(SetProcessingStatusToOrder.Faulted)
-                    .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Order Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
-                    .TransitionTo(FailedSetOrder),
-
-                When(SetProcessingStatusToOrder.TimeoutExpired)
-                    .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set Order Status"); })
-                    .TransitionTo(FailedSetOrder)
-            );
-
-            During(FailedSetOrder,
-
-                When(SetProcessingStatusToOrder.Faulted)
-                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
-                    .Request(CancelSetOnTheTripDriver, x => x.Init<CancelSetOnTheTripStatusRequest>(new CancelSetOnTheTripStatusRequest { DriverId = request.DriverId }))
+                    .Request(CancelSetProcessingStatusToOrder, x => x.Init<CancelSetProcessingStatusToOrderRequest>(new CancelSetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
+                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = order.UserId }))
                     .Finalize(),
 
                 When(SetProcessingStatusToOrder.TimeoutExpired)
-                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
-                    .Request(CancelSetOnTheTripDriver, x => x.Init<CancelSetOnTheTripStatusRequest>(new CancelSetOnTheTripStatusRequest { DriverId = request.DriverId }))
+                    .Request(CancelSetProcessingStatusToOrder, x => x.Init<CancelSetProcessingStatusToOrderRequest>(new CancelSetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
+                    .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = order.UserId }))
                     .Finalize()
             );
+
+            //Initially(
+            //    When(ProcessCar).Then(x =>
+            //    {
+            //        logger.LogCritical("try get payload");
+
+            //        if (!x.TryGetPayload(out SagaConsumeContext<ProcessCarSagaState, ProcessCarRequest> payload))
+            //            throw new Exception("Unable to retrieve required payload for callback data.");
+
+            //        //logger.LogCritical(x.Data.ResponseAddress.ToString());
+
+            //        logger.LogCritical(payload.RequestId.ToString());
+            //        logger.LogCritical(payload.ResponseAddress.ToString());
+
+            //        x.Instance.RequestId = payload.RequestId;
+            //        x.Instance.ResponseAddress = payload.ResponseAddress;
+            //    })
+            //    .Request(SetOnTheTripUser, x =>
+            //    {
+            //        request = x.Data;
+            //        logger.LogCritical(request.OrderId.ToString());
+            //        return x.Init<SetOnTheTripUserStatusRequest>(new SetOnTheTripUserStatusRequest() { UserId = x.Data.UserId });
+            //    })
+            //    .TransitionTo(SetOnTheTripUser.Pending)
+            //);
+
+            //During(SetOnTheTripUser.Pending,
+
+            //    When(SetOnTheTripUser.Completed)
+            //        .Then(context => { logger.LogCritical("SetOnTheTripUser.Completed"); })
+            //        .Request(SetOnTheTripDriver, x => x.Init<SetOnTheTripStatusRequest>(new SetOnTheTripStatusRequest { DriverId = request.DriverId }))
+            //        .TransitionTo(SetOnTheTripDriver.Pending),
+
+            //    When(SetOnTheTripUser.Faulted)
+            //       .ThenAsync(async context => {  await RespondFromSaga(context, "Faulted On Set User Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+            //       .TransitionTo(FailedSetUser),
+
+            //    When(SetOnTheTripUser.TimeoutExpired)
+            //       .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set User Status"); })
+            //       .TransitionTo(FailedSetUser)
+            //);
+
+            //During(FailedSetUser,
+
+            //    When(SetOnTheTripUser.Faulted)
+            //        .Finalize(),
+
+            //     When(SetOnTheTripUser.TimeoutExpired)
+            //        .Finalize()
+            //);
+
+            //During(SetOnTheTripDriver.Pending,
+
+            //    When(SetOnTheTripDriver.Completed)
+            //        .Then(context => { logger.LogCritical("SetOnTheTripDriver.Completed"); })
+            //        .Request(SetProcessingStatusToOrder, x => x.Init<SetProcessingStatusToOrderRequest>(new SetProcessingStatusToOrderRequest { OrderId = request.OrderId }))
+            //        .TransitionTo(SetProcessingStatusToOrder.Pending),
+
+            //    When(SetOnTheTripDriver.Faulted)
+            //        .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Driver Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+            //        .TransitionTo(FailedSetDriver),
+
+            //    When(SetOnTheTripDriver.TimeoutExpired)
+            //        .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set Driver Status"); })
+            //        .TransitionTo(FailedSetDriver)
+            //);
+
+            //During(FailedSetDriver,
+
+            //    When(SetOnTheTripDriver.Faulted)
+            //        .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
+            //        .Finalize(),
+
+            //    When(SetOnTheTripDriver.TimeoutExpired)
+            //        .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
+            //        .Finalize()
+            //);
+
+            //During(SetProcessingStatusToOrder.Pending,
+
+            //    When(SetProcessingStatusToOrder.Completed)
+            //        .Then(context => { logger.LogCritical("SetProcessingStatusToOrder.Completed"); })
+            //        .ThenAsync(async context => { await RespondFromSaga(context, null); })
+            //        .Finalize(),
+
+            //    When(SetProcessingStatusToOrder.Faulted)
+            //        .ThenAsync(async context => { await RespondFromSaga(context, "Faulted On Set Order Status " + string.Join("; ", context.Data.Exceptions.Select(x => x.Message))); })
+            //        .TransitionTo(FailedSetOrder),
+
+            //    When(SetProcessingStatusToOrder.TimeoutExpired)
+            //        .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Set Order Status"); })
+            //        .TransitionTo(FailedSetOrder)
+            //);
+
+            //During(FailedSetOrder,
+
+            //    When(SetProcessingStatusToOrder.Faulted)
+            //        .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
+            //        .Request(CancelSetOnTheTripDriver, x => x.Init<CancelSetOnTheTripStatusRequest>(new CancelSetOnTheTripStatusRequest { DriverId = request.DriverId }))
+            //        .Finalize(),
+
+            //    When(SetProcessingStatusToOrder.TimeoutExpired)
+            //        .Request(CancelSetOnTheTripUser, x => x.Init<CancelSetOnTheTripUserStatusRequest>(new CancelSetOnTheTripUserStatusRequest { UserId = request.UserId }))
+            //        .Request(CancelSetOnTheTripDriver, x => x.Init<CancelSetOnTheTripStatusRequest>(new CancelSetOnTheTripStatusRequest { DriverId = request.DriverId }))
+            //        .Finalize()
+            //);
         }
 
+        public Request<ProcessCarSagaState, SetProcessingStatusToOrderRequest, SetProcessingStatusToOrderResponse> SetProcessingStatusToOrder { get; set; }
+        public Request<ProcessCarSagaState, CancelSetProcessingStatusToOrderRequest, CancelSetProcessingStatusToOrderResponse> CancelSetProcessingStatusToOrder { get; set; }
         public Request<ProcessCarSagaState, SetOnTheTripUserStatusRequest, SetOnTheTripUserStatusResponse> SetOnTheTripUser { get; set; }
         public Request<ProcessCarSagaState, CancelSetOnTheTripUserStatusRequest, CancelSetOnTheTripUserStatusResponse> CancelSetOnTheTripUser { get; set; }
         public Request<ProcessCarSagaState, SetOnTheTripStatusRequest, SetOnTheTripStatusResponse> SetOnTheTripDriver { get; set; }
-        public Request<ProcessCarSagaState, CancelSetOnTheTripStatusRequest, CancelSetOnTheTripStatusResponse> CancelSetOnTheTripDriver { get; set; }
-        public Request<ProcessCarSagaState, SetProcessingStatusToOrderRequest, SetProcessingStatusToOrderResponse> SetProcessingStatusToOrder { get; set; }
 
         public Automatonymous.State FailedSetUser { get; set; }
         public Automatonymous.State FailedSetDriver { get; set; }

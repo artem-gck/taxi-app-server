@@ -22,7 +22,12 @@ namespace UsersService.Application.Consumers
             if (user.Status?.Name == "Free")
             {
                 await _userRepository.UpdateStatusAsync(userId, "Waiting car");
-                await context.RespondAsync(new SetWaitingUserStatusResponse { UserId = userId });
+                await context.RespondAsync(new SetWaitingUserStatusResponse 
+                { 
+                    UserId = userId, 
+                    Name = user.Name,  
+                    Surname = user.Surname
+                });
 
                 return;
             }
