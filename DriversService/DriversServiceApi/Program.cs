@@ -11,13 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var rabbitConnectionString = Environment.GetEnvironmentVariable("RabbitConnection") ?? builder.Configuration.GetConnectionString("RabbitConnection");
+var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnection") ?? builder.Configuration.GetConnectionString("ServiceBusConnection");
 var dbConnectionString = Environment.GetEnvironmentVariable("DriversDbConnection") ?? builder.Configuration.GetConnectionString("DriversDbConnection");
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-//builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IDriversRepository, DriversRepository>();
 
@@ -29,7 +24,6 @@ builder.Services.AddHealthChecks().AddSqlServer(dbConnectionString);
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
-    //cfg.AddDelayedMessageScheduler();
 
     cfg.AddServiceBusMessageScheduler();    
 
@@ -47,33 +41,13 @@ builder.Services.AddMassTransit(cfg =>
             r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         });
 
-        //rbfc.UseDelayedMessageScheduler();
-
         rbfc.UseServiceBusMessageScheduler();
         
-        rbfc.Host(rabbitConnectionString);
+        rbfc.Host(serviceBusConnectionString);
 
         rbfc.ConfigureEndpoints(brc);
     });
 
-    //cfg.UsingRabbitMq((brc, rbfc) =>
-    //{
-    //    rbfc.UseInMemoryOutbox();
-
-    //    rbfc.UseMessageRetry(r =>
-    //    {
-    //        r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-    //    });
-
-    //    rbfc.UseDelayedMessageScheduler();
-    //    rbfc.Host(rabbitConnectionString, "/", h =>
-    //    {
-    //        h.Username("guest");
-    //        h.Password("guest");
-    //    });
-
-    //    rbfc.ConfigureEndpoints(brc);
-    //});
 }).AddMassTransitHostedService();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
@@ -112,9 +86,6 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseStatusCodePages();
-
-    //app.UseSwagger();
-    //app.UseSwaggerUI();
 }
 
 app.MapHealthChecks("/health", new HealthCheckOptions

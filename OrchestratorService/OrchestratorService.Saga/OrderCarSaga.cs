@@ -1,18 +1,19 @@
 ﻿using Automatonymous;
 using Contracts.Shared.OrderCarTransaction;
+using DnsClient.Internal;
 using MassTransit;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
 using OrchestratorService.Saga.State;
 
 namespace OrchestratorService.Saga
 {
     public class OrderCarSaga : MassTransitStateMachine<OrderCarSagaState>
     {
-        public OrderCarSaga()
+        private static ILogger<OrderCarSaga> _logger;
+
+        public OrderCarSaga(ILogger<OrderCarSaga> logger)
         {
-            //OrderCarRequest request = new OrderCarRequest();
-            //SetWaitingUserStatusResponse response = new SetWaitingUserStatusResponse();
+            _logger= logger;
 
             InstanceState(x => x.CurrentState);
 
@@ -31,16 +32,10 @@ namespace OrchestratorService.Saga
                             throw new Exception("Unable to retrieve required payload for callback data.");
                         x.Instance.RequestId = payload.RequestId;
                         x.Instance.ResponseAddress = payload.ResponseAddress;
-
-                        //logger.LogCritical(x.Instance.RequestId.ToString());
                     })
                     .Request(SetWaitingUser, x =>
                     {
-                        //request = x.Data;
-
                         x.Instance.Request = x.Data;
-
-                        //logger.LogCritical(x.Data.UserId.ToString());
 
                         return x.Init<SetWaitingUserStatusRequest>(new SetWaitingUserStatusRequest() { UserId = x.Data.UserId });
                     })
@@ -161,6 +156,8 @@ namespace OrchestratorService.Saga
             
             if (string.IsNullOrWhiteSpace(error))
             {
+                _logger.LogWarning($"{context.Instance.ResponseAddress}");
+                
                 await endpoint.Send(new OrderCarResponse
                 {
                     CorrelationId = context.Instance.CorrelationId,

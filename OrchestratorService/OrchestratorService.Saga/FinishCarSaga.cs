@@ -1,6 +1,5 @@
 ﻿using Automatonymous;
 using Contracts.Shared.FinishTheTransaction;
-using Contracts.Shared.StartTripTransaction;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using OrchestratorService.Saga.State;
@@ -9,14 +8,8 @@ namespace OrchestratorService.Saga
 {
     public class FinishCarSaga : MassTransitStateMachine<FinishCarSagaState>
     {
-        private readonly ILogger<FinishCarSaga> _logger;
-
         public FinishCarSaga()
         {
- //           _logger = logger;
-            //FinishCarRequest request = new FinishCarRequest();
-            //SetFinishStatusToOrderResponse order = new SetFinishStatusToOrderResponse();
-
             InstanceState(x => x.CurrentState);
 
             Event(() => FinishCar, x => x.CorrelateById(y => y.Message.Id));

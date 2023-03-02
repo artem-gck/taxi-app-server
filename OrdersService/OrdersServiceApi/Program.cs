@@ -10,7 +10,7 @@ using OrdersService.Services.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var rabbitConnectionString = Environment.GetEnvironmentVariable("RabbitConnection") ?? builder.Configuration.GetConnectionString("RabbitConnection");
+var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnection") ?? builder.Configuration.GetConnectionString("ServiceBusConnection");
 var dbConnectionString = Environment.GetEnvironmentVariable("OrdersDbConnection") ?? builder.Configuration.GetConnectionString("OrdersDbConnection");
 
 builder.Services.AddScoped<IOrdersRepository, OrdersRepository>();
@@ -23,8 +23,6 @@ builder.Services.AddHealthChecks().AddSqlServer(dbConnectionString);
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
-    //cfg.AddDelayedMessageScheduler();
-
     cfg.AddServiceBusMessageScheduler();
 
     cfg.AddConsumer<AddNewOrderConsumer>();
@@ -42,32 +40,11 @@ builder.Services.AddMassTransit(cfg =>
             r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         });
 
-        //rbfc.UseDelayedMessageScheduler();
-
         rbfc.UseServiceBusMessageScheduler();
-        rbfc.Host(rabbitConnectionString);
+        rbfc.Host(serviceBusConnectionString);
 
         rbfc.ConfigureEndpoints(brc);
     });
-
-    //cfg.UsingRabbitMq((brc, rbfc) =>
-    //{
-    //    rbfc.UseInMemoryOutbox();
-
-    //    rbfc.UseMessageRetry(r =>
-    //    {
-    //        r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-    //    });
-
-    //    rbfc.UseDelayedMessageScheduler();
-    //    rbfc.Host(rabbitConnectionString, "/", h =>
-    //    {
-    //        h.Username("guest");
-    //        h.Password("guest");
-    //    });
-
-    //    rbfc.ConfigureEndpoints(brc);
-    //});
 }).AddMassTransitHostedService();
 
 var serviceProvider = builder.Services.BuildServiceProvider();

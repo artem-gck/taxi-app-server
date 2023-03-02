@@ -8,8 +8,6 @@ namespace OrchestratorService.Saga
 {
     public class ProcessCarSaga : MassTransitStateMachine<ProcessCarSagaState>
     {
-        //private readonly ILogger<ProcessCarSaga> _logger;
-
         public ProcessCarSaga(ILogger<ProcessCarSaga> logger)
         {
             
@@ -27,8 +25,6 @@ namespace OrchestratorService.Saga
             Initially(
                 When(ProcessCar).Then(x =>
                 {
-                    //logger.LogCritical("try get payload");
-
                     if (!x.TryGetPayload(out SagaConsumeContext<ProcessCarSagaState, ProcessCarRequest> payload))
                         throw new Exception("Unable to retrieve required payload for callback data.");
 
@@ -142,9 +138,6 @@ namespace OrchestratorService.Saga
 
         private async Task RespondFromSaga<T>(BehaviorContext<ProcessCarSagaState, T> context, string error) where T : class
         {
-            //_logger.LogCritical("RespondFromSaga");
-            //_logger.LogCritical(context.Instance.ResponseAddress.ToString());
-
             var endpoint = await context.GetSendEndpoint(context.Instance.ResponseAddress);
             if (string.IsNullOrWhiteSpace(error))
             {
