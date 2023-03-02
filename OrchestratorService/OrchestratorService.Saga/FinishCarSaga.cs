@@ -1,5 +1,6 @@
 ﻿using Automatonymous;
 using Contracts.Shared.FinishTheTransaction;
+using Contracts.Shared.StartTripTransaction;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using OrchestratorService.Saga.State;
@@ -10,11 +11,11 @@ namespace OrchestratorService.Saga
     {
         private readonly ILogger<FinishCarSaga> _logger;
 
-        public FinishCarSaga(ILogger<FinishCarSaga> logger)
+        public FinishCarSaga()
         {
-            _logger = logger;
-            FinishCarRequest request = new FinishCarRequest();
-            SetFinishStatusToOrderResponse order = new SetFinishStatusToOrderResponse();
+ //           _logger = logger;
+            //FinishCarRequest request = new FinishCarRequest();
+            //SetFinishStatusToOrderResponse order = new SetFinishStatusToOrderResponse();
 
             InstanceState(x => x.CurrentState);
 
@@ -37,7 +38,7 @@ namespace OrchestratorService.Saga
                 })
                 .Request(SetFinishStatusToOrder, x =>
                 {
-                    request = x.Data;
+                    x.Instance.Request = x.Data;
                     return x.Init<SetFinishStatusToOrderRequest>(new SetFinishStatusToOrderRequest() 
                     { 
                         OrderId = x.Data.OrderId,
@@ -52,7 +53,7 @@ namespace OrchestratorService.Saga
             During(SetFinishStatusToOrder.Pending,
 
                 When(SetFinishStatusToOrder.Completed)
-                    .Then(x => order = x.Data)
+                    .Then(x => x.Instance.Order = x.Data)
                     .Request(SetFreeUser, x => x.Init<SetFreeStatusToUserRequest>(new SetFreeStatusToUserRequest { UserId = x.Data.UserId }))
                     .TransitionTo(SetFreeUser.Pending),
 
@@ -77,7 +78,7 @@ namespace OrchestratorService.Saga
             During(SetFreeUser.Pending,
 
                 When(SetFreeUser.Completed)
-                    .Request(SetFreeDriver, x => x.Init<SetFreeStatusToDriverRequest>(new SetFreeStatusToDriverRequest { DriverId = order.DriverId }))
+                    .Request(SetFreeDriver, x => x.Init<SetFreeStatusToDriverRequest>(new SetFreeStatusToDriverRequest { DriverId = x.Instance.Order.DriverId }))
                     .TransitionTo(SetFreeDriver.Pending),
 
                 When(SetFreeUser.Faulted)
@@ -92,11 +93,11 @@ namespace OrchestratorService.Saga
             During(FailedSetUser,
 
                 When(SetFreeUser.Faulted)
-                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = request.OrderId }))
+                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = x.Instance.Request.OrderId }))
                     .Finalize(),
 
                 When(SetFreeUser.TimeoutExpired)
-                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = request.OrderId }))
+                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = x.Instance.Request.OrderId }))
                     .Finalize()
             );
 
@@ -118,15 +119,17 @@ namespace OrchestratorService.Saga
             During(FailedSetDriver,
 
                 When(SetFreeDriver.Faulted)
-                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = request.OrderId }))
-                    .Request(CancelSetFreeUser, x => x.Init<CancelSetFreeStatusToUserRequest>(new CancelSetFreeStatusToUserRequest { UserId = order.UserId }))
+                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = x.Instance.Request.OrderId }))
+                    .Request(CancelSetFreeUser, x => x.Init<CancelSetFreeStatusToUserRequest>(new CancelSetFreeStatusToUserRequest { UserId = x.Instance.Order.UserId }))
                     .Finalize(),
 
                 When(SetFreeDriver.TimeoutExpired)
-                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = request.OrderId }))
-                    .Request(CancelSetFreeUser, x => x.Init<CancelSetFreeStatusToUserRequest>(new CancelSetFreeStatusToUserRequest { UserId = order.UserId }))
+                    .Request(CancelSetFinishStatusToOrder, x => x.Init<CancelSetFinishStatusToOrderRequest>(new CancelSetFinishStatusToOrderRequest { OrderId = x.Instance.Request.OrderId }))
+                    .Request(CancelSetFreeUser, x => x.Init<CancelSetFreeStatusToUserRequest>(new CancelSetFreeStatusToUserRequest { UserId = x.Instance.Order.UserId }))
                     .Finalize()
             );
+
+            SetCompletedWhenFinalized();
         }
 
         public Request<FinishCarSagaState, SetFinishStatusToOrderRequest, SetFinishStatusToOrderResponse> SetFinishStatusToOrder { get; set; }
@@ -144,12 +147,25 @@ namespace OrchestratorService.Saga
         private async Task RespondFromSaga<T>(BehaviorContext<FinishCarSagaState, T> context, string error) where T : class
         {
             var endpoint = await context.GetSendEndpoint(context.Instance.ResponseAddress);
-            await endpoint.Send(new FinishCarResponse
+            if (string.IsNullOrWhiteSpace(error))
             {
-                OrderId = context.Instance.CorrelationId,
-                ErrorMessage = error
-            },
-            r => r.RequestId = context.Instance.RequestId);
+                await endpoint.Send(new FinishCarResponse
+                {
+                    CorrelationId = context.Instance.CorrelationId,
+                    OrderId = context.Instance.Order.OrderId,
+                    ErrorMessage = error
+                },
+                r => r.RequestId = context.Instance.RequestId);
+            }
+            else
+            {
+                await endpoint.Send(new FinishCarResponse
+                {
+                    CorrelationId = context.Instance.CorrelationId,
+                    ErrorMessage = error
+                },
+                r => r.RequestId = context.Instance.RequestId);
+            }
         }
     }
 }

@@ -1,3 +1,6 @@
+using Contracts.Shared.FinishTheTransaction;
+using Contracts.Shared.OrderCarTransaction;
+using Contracts.Shared.StartTripTransaction;
 using GreenPipes;
 using MassTransit;
 
@@ -15,23 +18,44 @@ builder.Services.AddHttpClient();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
-    cfg.AddDelayedMessageScheduler();
-    cfg.UsingRabbitMq((brc, rbfc) =>
+    //cfg.AddDelayedMessageScheduler();
+    cfg.AddServiceBusMessageScheduler();
+
+    cfg.UsingAzureServiceBus((brc, rbfc) =>
     {
-        rbfc.UseInMemoryOutbox();
+        //rbfc.UseInMemoryOutbox();
         rbfc.UseMessageRetry(r =>
         {
             r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         });
-        rbfc.UseDelayedMessageScheduler();
-        rbfc.Host(rabbitConnection, h =>
-        {
-            h.Username("guest");
-            h.Password("guest");
-        });
+        //rbfc.UseDelayedMessageScheduler();
+
+        rbfc.UseServiceBusMessageScheduler();
+        rbfc.Host(rabbitConnection);
+
+        rbfc.Send<OrderCarRequest>(s => s.UseSessionIdFormatter(c => c.Message.Id.ToString("D")));
+        rbfc.Send<ProcessCarRequest>(s => s.UseSessionIdFormatter(c => c.Message.Id.ToString("D")));
+        rbfc.Send<FinishCarRequest>(s => s.UseSessionIdFormatter(c => c.Message.Id.ToString("D")));
+
         rbfc.ConfigureEndpoints(brc);
     });
-}).AddMassTransitHostedService();
+
+    //cfg.UsingRabbitMq((brc, rbfc) =>
+    //{
+    //    rbfc.UseInMemoryOutbox();
+    //    rbfc.UseMessageRetry(r =>
+    //    {
+    //        r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    //    });
+    //    rbfc.UseDelayedMessageScheduler();
+    //    rbfc.Host(rabbitConnection, h =>
+    //    {
+    //        h.Username("guest");
+    //        h.Password("guest");
+    //    });
+    //    rbfc.ConfigureEndpoints(brc);
+    //});
+});//.AddMassTransitHostedService();
 
 
 var app = builder.Build();
@@ -42,7 +66,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseStatusCodePages();
 }
+
+
 
 app.MapControllers();
 

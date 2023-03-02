@@ -1,14 +1,14 @@
 version: "3.9"
 services:
-  rabbitmq:
-    container_name: rabbitmq
-    image: heidiks/rabbitmq-delayed-message-exchange:latest
-    ports:
-      - 15672:15672
-      - 5672:5672
-    environment:
-      RABBITMQ_DEFAULT_USER: "guest"
-      RABBITMQ_DEFAULT_PASS: "guest"
+  # rabbitmq:
+  #   container_name: rabbitmq
+  #   image: heidiks/rabbitmq-delayed-message-exchange:latest
+  #   ports:
+  #     - 15672:15672
+  #     - 5672:5672
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: "guest"
+  #     RABBITMQ_DEFAULT_PASS: "guest"
 
   user_service:
     container_name: user_api
@@ -18,12 +18,13 @@ services:
       context: .
       dockerfile: UsersService/UsersServiceApi/Dockerfile
     environment:
-      UsersDbConnection: "Server=user_sql;Database=user_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
-      RabbitConnection: "rabbitmq"
+      # UsersDbConnection: "Server=user_sql;Database=user_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      UsersDbConnection: "Server=tcp:taxi-db.database.windows.net,1433;Initial Catalog=users;Persist Security Info=False;User ID=taxiadmin;Password=NsFkNTn5;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+      RabbitConnection: "${BrokerConnection}"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
-    depends_on:
-      - user_sql
-      - rabbitmq
+    # depends_on:
+    #   - user_sql
+      #- rabbitmq
 
   drivers_service:
     container_name: drivers_api
@@ -33,12 +34,13 @@ services:
       context: .
       dockerfile: DriversService/DriversServiceApi/Dockerfile
     environment:
-      DriversDbConnection: "Server=drivers_sql;Database=drivers_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
-      RabbitConnection: "rabbitmq"
+      # DriversDbConnection: "Server=drivers_sql;Database=drivers_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      DriversDbConnection: "Server=tcp:taxi-db.database.windows.net,1433;Initial Catalog=drivers;Persist Security Info=False;User ID=taxiadmin;Password=NsFkNTn5;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+      RabbitConnection: "${BrokerConnection}"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
-    depends_on:
-      - drivers_sql
-      - rabbitmq
+    # depends_on:
+    #   - drivers_sql
+      #- rabbitmq
 
   orders_service:
     container_name: orders_api
@@ -48,12 +50,13 @@ services:
       context: .
       dockerfile: OrdersService/OrdersServiceApi/Dockerfile
     environment:
-      OrdersDbConnection: "Server=orders_sql;Database=orders_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
-      RabbitConnection: "rabbitmq"
+      #OrdersDbConnection: "Server=orders_sql;Database=orders_taxi;User=SA;Password=yourStrong(!)Password;Trust Server Certificate=true"
+      OrdersDbConnection: "Server=tcp:taxi-db.database.windows.net,1433;Initial Catalog=orders;Persist Security Info=False;User ID=taxiadmin;Password=NsFkNTn5;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+      RabbitConnection: "${BrokerConnection}"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
-    depends_on:
-      - orders_sql
-      - rabbitmq
+    # depends_on:
+    #   - orders_sql
+      #- rabbitmq
 
   orchestrator_service:
     container_name: orchestrator_api
@@ -62,11 +65,11 @@ services:
       dockerfile: OrchestratorService/OrchestratorServiceApi/Dockerfile
     environment:
       SagaConnection: "mongodb://saga_mongo"
-      RabbitConnection: "rabbitmq"
+      RabbitConnection: "${BrokerConnection}"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
-    depends_on:
-      - saga_mongo
-      - rabbitmq
+    #depends_on:
+      #- saga_mongo
+      #- rabbitmq
 
   api_gateway:
     container_name: api_gateway
@@ -76,55 +79,55 @@ services:
       context: .
       dockerfile: ApiGateway/ApiGateway/Dockerfile
     environment:
-      RabbitConnection: "rabbitmq"
+      RabbitConnection: "${BrokerConnection}"
       ASPNETCORE_ENVIRONMENT: "${Environment}"
       UserServiceHealth: "http://user_service/health"
       DriversServiceHealth: "http://drivers_service/health"
       OrdersServiceHealth: "http://orders_service/health"
       OrchestratorServiceHealth: "http://orchestrator_service/health"
     depends_on:
-      - rabbitmq
+      #- rabbitmq
       - user_service
       - drivers_service
       - orders_service
       - orchestrator_service
 
-  user_sql:
-    container_name: user_sql
-    image: "mcr.microsoft.com/mssql/server"
-    ports: 
-      - 1433:1433
-    environment:
-        SA_PASSWORD: "yourStrong(!)Password"
-        ACCEPT_EULA: "Y"
+  # user_sql:
+  #   container_name: user_sql
+  #   image: "mcr.microsoft.com/mssql/server"
+  #   ports: 
+  #     - 1433:1433
+  #   environment:
+  #       SA_PASSWORD: "yourStrong(!)Password"
+  #       ACCEPT_EULA: "Y"
     # volumes:
     #     - 'users-dbdata:/var/opt/mssql'
 
-  drivers_sql:
-    container_name: drivers_sql
-    image: "mcr.microsoft.com/mssql/server"
-    ports: 
-      - 1434:1433
-    environment:
-        SA_PASSWORD: "yourStrong(!)Password"
-        ACCEPT_EULA: "Y"
+  # drivers_sql:
+  #   container_name: drivers_sql
+  #   image: "mcr.microsoft.com/mssql/server"
+  #   ports: 
+  #     - 1434:1433
+  #   environment:
+  #       SA_PASSWORD: "yourStrong(!)Password"
+  #       ACCEPT_EULA: "Y"
     # volumes:
     #     - 'drivers-dbdata:/var/opt/mssql'
 
-  orders_sql:
-    container_name: orders_sql
-    image: "mcr.microsoft.com/mssql/server"
-    ports: 
-      - 1435:1433
-    environment:
-        SA_PASSWORD: "yourStrong(!)Password"
-        ACCEPT_EULA: "Y"
+  # orders_sql:
+  #   container_name: orders_sql
+  #   image: "mcr.microsoft.com/mssql/server"
+  #   ports: 
+  #     - 1435:1433
+  #   environment:
+  #       SA_PASSWORD: "yourStrong(!)Password"
+  #       ACCEPT_EULA: "Y"
     # volumes:
     #     - 'orders-dbdata:/var/opt/mssql'
 
-  saga_mongo:
-    container_name: saga_mongo
-    image: "mongo"
+  # saga_mongo:
+  #   container_name: saga_mongo
+  #   image: "mongo"
     # volumes:
     #   - 'orchestrator-dbdata:/data/db'
 

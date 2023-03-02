@@ -4,6 +4,7 @@ using Contracts.Shared.OrderCarTransaction;
 using Contracts.Shared.StartTripTransaction;
 using HealthChecks.UI.Core;
 using MassTransit;
+using MassTransit.Clients;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 
@@ -33,7 +34,7 @@ namespace ApiGateway.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> BuyAsync(OrderCarRequestModel model)
+        public async Task<IActionResult> BuyAsync(OrderCarRequest model)
         {
             try
             {
@@ -116,7 +117,7 @@ namespace ApiGateway.Controllers
                 return BadRequest("Services unhealthy");
             }
 
-            var model = new ProcessCarRequestModel();
+            var model = new ProcessCarRequest();
 
             model.Id = Guid.NewGuid();
             model.OrderId = id;
@@ -130,7 +131,7 @@ namespace ApiGateway.Controllers
         }
 
         [HttpPut("delete/{id}")]
-        public async Task<IActionResult> FinishAsync(FinishCarRequestModel model, Guid id)
+        public async Task<IActionResult> FinishAsync(FinishCarRequest model, Guid id)
         {
             try
             {

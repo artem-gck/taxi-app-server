@@ -2,16 +2,17 @@
 using Contracts.Shared.OrderCarTransaction;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 using OrchestratorService.Saga.State;
 
 namespace OrchestratorService.Saga
 {
     public class OrderCarSaga : MassTransitStateMachine<OrderCarSagaState>
     {
-        public OrderCarSaga(ILogger<OrderCarSaga> logger)
+        public OrderCarSaga()
         {
-            OrderCarRequest request = new OrderCarRequest();
-            SetWaitingUserStatusResponse userResponce = new SetWaitingUserStatusResponse();
+            //OrderCarRequest request = new OrderCarRequest();
+            //SetWaitingUserStatusResponse response = new SetWaitingUserStatusResponse();
 
             InstanceState(x => x.CurrentState);
 
@@ -30,10 +31,16 @@ namespace OrchestratorService.Saga
                             throw new Exception("Unable to retrieve required payload for callback data.");
                         x.Instance.RequestId = payload.RequestId;
                         x.Instance.ResponseAddress = payload.ResponseAddress;
+
+                        //logger.LogCritical(x.Instance.RequestId.ToString());
                     })
                     .Request(SetWaitingUser, x =>
                     {
-                        request = x.Data;
+                        //request = x.Data;
+
+                        x.Instance.Request = x.Data;
+
+                        //logger.LogCritical(x.Data.UserId.ToString());
 
                         return x.Init<SetWaitingUserStatusRequest>(new SetWaitingUserStatusRequest() { UserId = x.Data.UserId });
                     })
@@ -43,8 +50,8 @@ namespace OrchestratorService.Saga
             During(SetWaitingUser.Pending,
 
                 When(SetWaitingUser.Completed)
-                    .Then(x => userResponce = x.Data)
-                    .Request(SetGoesToUserDriver, x => x.Init<SetGoesToUserDriverStatusRequest>(new SetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
+                    .Then(x => x.Instance.UserResponse = x.Data)
+                    .Request(SetGoesToUserDriver, x => x.Init<SetGoesToUserDriverStatusRequest>(new SetGoesToUserDriverStatusRequest { DriverId = x.Instance.Request.DriverId }))
                     .TransitionTo(SetGoesToUserDriver.Pending),
 
                 When(SetWaitingUser.Faulted)
@@ -70,16 +77,16 @@ namespace OrchestratorService.Saga
                 When(SetGoesToUserDriver.Completed)
                     .Request(AddOrder, x => x.Init<AddOrderRequest>(new AddOrderRequest
                     {
-                        UserId = request.UserId,
-                        UserName = userResponce.Name,
-                        UserSurname = userResponce.Surname,
-                        DriverId = request.DriverId,
+                        UserId = x.Instance.Request.UserId,
+                        UserName = x.Instance.UserResponse.Name,
+                        UserSurname = x.Instance.UserResponse.Surname,
+                        DriverId = x.Instance.Request.DriverId,
                         DriverName = x.Data.Name,
                         DriverSurname = x.Data.Surname,
-                        StartLatitude = request.StartLatitude,
-                        StartLongitude = request.StartLongitude,
-                        FinishLatitude = request.FinishLatitude,
-                        FinishLongitude = request.FinishLongitude
+                        StartLatitude = x.Instance.Request.StartLatitude,
+                        StartLongitude = x.Instance.Request.StartLongitude,
+                        FinishLatitude = x.Instance.Request.FinishLatitude,
+                        FinishLongitude = x.Instance.Request.FinishLongitude
                     }))
                     .TransitionTo(AddOrder.Pending),
 
@@ -95,11 +102,11 @@ namespace OrchestratorService.Saga
             During(FailedSetDriver,
 
                 When(SetGoesToUserDriver.Faulted)
-                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = x.Instance.Request.UserId }))
                     .Finalize(),
 
                 When(SetGoesToUserDriver.TimeoutExpired)
-                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = x.Instance.Request.UserId }))
                     .Finalize()
             );
 
@@ -114,8 +121,8 @@ namespace OrchestratorService.Saga
                     .TransitionTo(FailedAddOrder),
 
                 When(AddOrder.TimeoutExpired)
-                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
-                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = x.Instance.Request.UserId }))
+                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = x.Instance.Request.DriverId }))
                     .ThenAsync(async context => { await RespondFromSaga(context, "Timeout Expired On Add Order"); })
                     .TransitionTo(FailedAddOrder)
             );
@@ -123,15 +130,17 @@ namespace OrchestratorService.Saga
             During(FailedAddOrder,
 
                 When(AddOrder.Faulted)
-                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
-                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = x.Instance.Request.UserId }))
+                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = x.Instance.Request.DriverId }))
                     .Finalize(),
 
                 When(AddOrder.TimeoutExpired)
-                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = request.UserId }))
-                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = request.DriverId }))
+                    .Request(CancelSetWaitingUser, x => x.Init<CancelSetWaitingUserStatusRequest>(new CancelSetWaitingUserStatusRequest { UserId = x.Instance.Request.UserId }))
+                    .Request(CancelSetGoesToUserDriver, x => x.Init<CancelSetGoesToUserDriverStatusRequest>(new CancelSetGoesToUserDriverStatusRequest { DriverId = x.Instance.Request.DriverId }))
                     .Finalize()
             );
+
+            SetCompletedWhenFinalized();
         }
 
         public Request<OrderCarSagaState, SetWaitingUserStatusRequest, SetWaitingUserStatusResponse> SetWaitingUser { get; set; }

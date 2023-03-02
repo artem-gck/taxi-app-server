@@ -29,14 +29,16 @@ builder.Services.AddHealthChecks().AddSqlServer(dbConnectionString);
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
-    cfg.AddDelayedMessageScheduler();
+    //cfg.AddDelayedMessageScheduler();
+
+    cfg.AddServiceBusMessageScheduler();    
 
     cfg.AddConsumer<SetGoesToUserStatusConsumer>();
     cfg.AddConsumer<CancelSetGoesToUserStatusConsumer>();
     cfg.AddConsumer<SetOnTheTripStatusConsumer>();
     cfg.AddConsumer<SetFreeStatusConsumer>();
 
-    cfg.UsingRabbitMq((brc, rbfc) =>
+    cfg.UsingAzureServiceBus((brc, rbfc) =>
     {
         rbfc.UseInMemoryOutbox();
 
@@ -45,15 +47,33 @@ builder.Services.AddMassTransit(cfg =>
             r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         });
 
-        rbfc.UseDelayedMessageScheduler();
-        rbfc.Host(rabbitConnectionString, "/", h =>
-        {
-            h.Username("guest");
-            h.Password("guest");
-        });
+        //rbfc.UseDelayedMessageScheduler();
+
+        rbfc.UseServiceBusMessageScheduler();
+        
+        rbfc.Host(rabbitConnectionString);
 
         rbfc.ConfigureEndpoints(brc);
     });
+
+    //cfg.UsingRabbitMq((brc, rbfc) =>
+    //{
+    //    rbfc.UseInMemoryOutbox();
+
+    //    rbfc.UseMessageRetry(r =>
+    //    {
+    //        r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    //    });
+
+    //    rbfc.UseDelayedMessageScheduler();
+    //    rbfc.Host(rabbitConnectionString, "/", h =>
+    //    {
+    //        h.Username("guest");
+    //        h.Password("guest");
+    //    });
+
+    //    rbfc.ConfigureEndpoints(brc);
+    //});
 }).AddMassTransitHostedService();
 
 var serviceProvider = builder.Services.BuildServiceProvider();

@@ -1,9 +1,11 @@
 ﻿using GreenPipes;
 using HealthChecks.UI.Client;
 using MassTransit;
+using MassTransit.Azure.ServiceBus.Core.Saga;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using OrchestratorService.Saga;
+using OrchestratorService.Saga.Definition;
 using OrchestratorService.Saga.State;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,45 +18,89 @@ builder.Services.AddHealthChecks();
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.SetKebabCaseEndpointNameFormatter();
-    cfg.AddDelayedMessageScheduler();
+    //cfg.AddDelayedMessageScheduler();
 
-    cfg.AddSagaStateMachine<OrderCarSaga, OrderCarSagaState>()
-       .MongoDbRepository(r =>
-       {
-           r.Connection = dbConnectionString;
-           r.DatabaseName = "orderDb";
-           r.CollectionName = "orders";
-       });
+    cfg.AddServiceBusMessageScheduler();
 
-    cfg.AddSagaStateMachine<ProcessCarSaga, ProcessCarSagaState>()
-       .MongoDbRepository(r =>
-       {
-           r.Connection = dbConnectionString;
-           r.DatabaseName = "orderDb";
-           r.CollectionName = "processes";
-       });
+    cfg.AddSagaStateMachine<OrderCarSaga, OrderCarSagaState, OrderCarSagaDefinition>()
+       .MessageSessionRepository();
+    //.MongoDbRepository(r =>
+    //{
+    //    r.Connection = dbConnectionString;
+    //    r.DatabaseName = "orderDb";
+    //    r.CollectionName = "orders";
+    //});
 
-    cfg.AddSagaStateMachine<FinishCarSaga, FinishCarSagaState>()
-       .MongoDbRepository(r =>
-       {
-           r.Connection = dbConnectionString;
-           r.DatabaseName = "orderDb";
-           r.CollectionName = "finish";
-       });
+    cfg.AddSagaStateMachine<ProcessCarSaga, ProcessCarSagaState, ProcessCarSagaDefinition>()
+       .MessageSessionRepository();
+    //.MongoDbRepository(r =>
+    //{
+    //    r.Connection = dbConnectionString;
+    //    r.DatabaseName = "orderDb";
+    //    r.CollectionName = "processes";
+    //});
 
-    cfg.UsingRabbitMq((brc, rbfc) =>
+    cfg.AddSagaStateMachine<FinishCarSaga, FinishCarSagaState, FinishCarSagaDefinition>()
+       .MessageSessionRepository();
+    //.MongoDbRepository(r =>
+    //{
+    //    r.Connection = dbConnectionString;
+    //    r.DatabaseName = "orderDb";
+    //    r.CollectionName = "finish";
+    //});
+
+    //cfg.UsingRabbitMq((brc, rbfc) =>
+    //{
+    //    rbfc.UseInMemoryOutbox();
+    //    rbfc.UseMessageRetry(r =>
+    //    {
+    //        r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    //    });
+    //    rbfc.UseDelayedMessageScheduler();
+    //    rbfc.Host(rabbitConnection, h =>
+    //    {
+    //        h.Username("guest");
+    //        h.Password("guest");
+    //    });
+    //    rbfc.ConfigureEndpoints(brc);
+    //});
+
+    cfg.UsingAzureServiceBus((brc, rbfc) =>
     {
+        //var orderCarSaga = new OrderCarSaga();
+        // This gives an Obsolete-warning 
+        // var repository = new MessageSessionSagaRepository<OrderState>(); 
+        // This is suggested instead
+        //var repository = MessageSessionSagaRepository.Create<OrderCarSagaState>();
+
+        rbfc.ReceiveEndpoint("order-state", ep =>
+        {
+            ep.RequiresSession = true;
+            ep.ConfigureSaga<OrderCarSagaState>(brc);
+        });
+
+        rbfc.ReceiveEndpoint("process-state", ep =>
+        {
+            ep.RequiresSession = true;
+            ep.ConfigureSaga<ProcessCarSagaState>(brc);
+        });
+
+        rbfc.ReceiveEndpoint("finish-state", ep =>
+        {
+            ep.RequiresSession = true;
+            ep.ConfigureSaga<FinishCarSagaState>(brc);
+        });
+
         rbfc.UseInMemoryOutbox();
         rbfc.UseMessageRetry(r =>
         {
             r.Incremental(3, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         });
-        rbfc.UseDelayedMessageScheduler();
-        rbfc.Host(rabbitConnection, h =>
-        {
-            h.Username("guest");
-            h.Password("guest");
-        });
+        //rbfc.UseDelayedMessageScheduler();
+
+        rbfc.UseServiceBusMessageScheduler();
+        
+        rbfc.Host(rabbitConnection);
         rbfc.ConfigureEndpoints(brc);
     });
 }).AddMassTransitHostedService();
