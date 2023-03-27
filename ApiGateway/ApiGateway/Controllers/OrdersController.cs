@@ -4,7 +4,6 @@ using Contracts.Shared.StartTripTransaction;
 using HealthChecks.UI.Core;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace ApiGateway.Controllers

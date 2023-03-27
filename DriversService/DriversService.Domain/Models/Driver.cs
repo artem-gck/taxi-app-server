@@ -12,6 +12,6 @@
         public Coordinates? Coordinates { get; set; }
         public double? Raiting { get; set; }
         public int? CountOfReview { get; set; }
-        public TimeSpan? Experience { get; set; }
+        public long? Experience { get; set; }
     }
 }

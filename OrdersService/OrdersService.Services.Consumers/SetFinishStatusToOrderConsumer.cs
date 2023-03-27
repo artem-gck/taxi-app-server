@@ -1,5 +1,6 @@
 ﻿using Contracts.Shared.FinishTheTransaction;
 using MassTransit;
+using Microsoft.Extensions.Logging;
 using OrdersService.Access.DataBase.Interfaces;
 
 namespace OrdersService.Services.Consumers
@@ -7,14 +8,18 @@ namespace OrdersService.Services.Consumers
     public class SetFinishStatusToOrderConsumer : IConsumer<SetFinishStatusToOrderRequest>
     {
         private readonly IOrdersRepository _ordersRepository;
+        private readonly ILogger<SetFinishStatusToOrderConsumer> _logger;
 
-        public SetFinishStatusToOrderConsumer(IOrdersRepository ordersRepository)
+        public SetFinishStatusToOrderConsumer(IOrdersRepository ordersRepository, ILogger<SetFinishStatusToOrderConsumer> logger)
         {
             _ordersRepository = ordersRepository ?? throw new ArgumentNullException(nameof(ordersRepository));
+            _logger = logger;
         }
 
         public async Task Consume(ConsumeContext<SetFinishStatusToOrderRequest> context)
         {
+            _logger.LogCritical("Start SetFinishStatusToOrderConsumer");
+
             var orderMessage = context.Message;
 
             var orderEntity = await _ordersRepository.GetAsync(orderMessage.OrderId);
@@ -30,6 +35,10 @@ namespace OrdersService.Services.Consumers
                 orderEntity.Price = orderMessage.Price;
 
                 await _ordersRepository.UpdateAsync(orderMessage.OrderId, orderEntity);
+
+                _logger.LogCritical(orderMessage.OrderId.ToString());
+                _logger.LogCritical(orderEntity.User.Id.ToString());
+                _logger.LogCritical(orderEntity.Driver.Id.ToString());
 
                 await context.RespondAsync(new SetFinishStatusToOrderResponse
                 {

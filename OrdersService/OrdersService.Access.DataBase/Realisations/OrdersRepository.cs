@@ -17,6 +17,9 @@ namespace OrdersService.Access.DataBase.Realisations
 
         public async Task<Guid> AddAsync(OrderEntity order)
         {
+            order.User = await GetUserAsync(order.User);
+            order.Driver = await GetUserAsync(order.Driver);
+
             var orderEntity = _ordersContext.Orders.Add(order);
 
             await _ordersContext.SaveChangesAsync();
@@ -110,6 +113,22 @@ namespace OrdersService.Access.DataBase.Realisations
             }
 
             return statusEntity;
+        }
+
+        private async Task<UserEntity> GetUserAsync(UserEntity user)
+        {
+            var userEntity = await _ordersContext.Users.FirstOrDefaultAsync(st => st.Id == user.Id);
+
+            if (userEntity is null)
+            {
+                var userTrackedEntity = _ordersContext.Users.Add(new UserEntity { Id = user.Id, Name = user.Name, Surname = user.Surname });
+
+                await _ordersContext.SaveChangesAsync();
+
+                userEntity = userTrackedEntity.Entity;
+            }
+
+            return userEntity;
         }
     }
 }

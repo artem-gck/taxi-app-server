@@ -39,6 +39,17 @@ namespace DriversService.Adapters.DataBase
             await _driversContext.SaveChangesAsync();
         }
 
+        public async Task<List<Driver>> GetAllAsync(string status)
+        {
+            var driverEntities = await _driversContext.Drivers
+                                                    .Include(dr => dr.Coordinates)
+                                                    .Include(dr => dr.Status)
+                                                    .Where(dr => dr.Status.Name == status && dr.IsOnline.Value)
+                                                    .ToListAsync();
+
+            return driverEntities;
+        }
+
         public async Task<Driver> GetAsync(Guid id)
         {
             var driverEntity = await _driversContext.Drivers

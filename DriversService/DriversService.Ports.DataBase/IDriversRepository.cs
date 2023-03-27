@@ -5,6 +5,7 @@ namespace DriversService.Ports.DataBase
     public interface IDriversRepository
     {
         public Task<Driver> GetAsync(Guid id);
+        public Task<List<Driver>> GetAllAsync(string status);
         public Task UpdateAsync(Guid id, Driver user);
         public Task UpdateStatusAsync(Guid id, string status);
         public Task DeleteAsync(Guid id);

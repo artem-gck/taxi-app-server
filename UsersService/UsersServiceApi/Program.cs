@@ -34,6 +34,7 @@ builder.Services.AddMassTransit(cfg =>
     cfg.AddConsumer<CancelStartTripConsumer>();
     cfg.AddConsumer<SetFreeStatusConsumer>();
     cfg.AddConsumer<CancelSetFreeStatusConsumer>();
+    cfg.AddConsumer<GetUserStateConsumer>();
 
     cfg.UsingAzureServiceBus((brc, rbfc) =>
     {
